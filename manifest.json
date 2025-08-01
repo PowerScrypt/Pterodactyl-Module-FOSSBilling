@@ -1,0 +1,10 @@
+{
+  "id": "servicepterodactyl",
+  "type": "mod",
+  "name": "Pterodactyl",
+  "description": "Pterodactyl game server hosting service module",
+  "icon_url": "icon.png",
+  "author": "Athenox Development",
+  "author_url": "https://athenox.dev",
+  "version": "1.0.0"
+}

@@ -1,0 +1,89 @@
+{% import 'macro_functions.html.twig' as mf %}
+    <div class="card-body">
+        <h1>{{ 'Pterodactyl Panel Configuration'|trans }}</h1>
+        <form method="post" action="{{ 'api/admin/product/update_config'|link }}" class="api-form save" data-api-msg="{{ 'Pterodactyl settings updated'|trans }}">
+            <input type="hidden" name="CSRFToken" value="{{ CSRFToken }}"/>
+            
+            <h2>{{ 'Default Server Settings'|trans }}</h2>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default Node'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_node]" value="{{ product.config.default_node|default(1) }}">
+                    <div class="form-text">{{ 'Default node ID for new servers'|trans }}</div>
+                </div>
+            </div>
+            
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default Egg'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_egg]" value="{{ product.config.default_egg|default(1) }}">
+                    <div class="form-text">{{ 'Default egg ID for new servers'|trans }}</div>
+                </div>
+            </div>
+
+            <hr>
+
+            <h2>{{ 'Resource Limits'|trans }}</h2>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default Memory (MB)'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_memory]" value="{{ product.config.default_memory|default(512) }}">
+                </div>
+            </div>
+            
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default Swap (MB)'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_swap]" value="{{ product.config.default_swap|default(0) }}">
+                </div>
+            </div>
+            
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default Disk (MB)'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_disk]" value="{{ product.config.default_disk|default(1024) }}">
+                </div>
+            </div>
+            
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default CPU (%)'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_cpu]" value="{{ product.config.default_cpu|default(100) }}">
+                </div>
+            </div>
+            
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default I/O Weight'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_io]" value="{{ product.config.default_io|default(500) }}">
+                </div>
+            </div>
+
+            <hr>
+
+            <h2>{{ 'Feature Limits'|trans }}</h2>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default Databases'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_databases]" value="{{ product.config.default_databases|default(1) }}">
+                </div>
+            </div>
+            
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default Allocations'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_allocations]" value="{{ product.config.default_allocations|default(1) }}">
+                </div>
+            </div>
+            
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Default Backups'|trans }}:</label>
+                <div class="col">
+                    <input type="number" class="form-control" name="config[default_backups]" value="{{ product.config.default_backups|default(1) }}">
+                </div>
+            </div>
+
+            <input type="hidden" name="id" value="{{ product.id }}">
+            <button class="btn btn-primary w-100" type="submit">{{ 'Update'|trans }}</button>
+        </form>
+    </div>

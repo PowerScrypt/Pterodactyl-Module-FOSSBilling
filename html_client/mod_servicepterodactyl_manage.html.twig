@@ -1,0 +1,149 @@
+{% if order.status == 'active' %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h2>{{ order.title }}</h2>
+    </div>
+    <div class="card-body">
+        <h3>{{ 'Détails du serveur Pterodactyl'|trans }}</h3>
+        <table class="table table-striped table-bordered table-sm">
+            <tbody>
+                <tr>
+                    <td>{{ 'Status'|trans }}</td>
+                    <td>
+                        <span class="badge {% if service.status == 'active' %}bg-success{% elseif service.status == 'suspended' %}bg-warning{% else %}bg-danger{% endif %}">
+                            {{ service.status|trans }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>{{ 'Server ID'|trans }}</td>
+                    <td>
+                        <strong>{{ service.server_identifier ?? 'Not provisioned' }}</strong>
+                    </td>
+                </tr>
+                {% if service.panel_url %}
+                <tr>
+                    <td>{{ 'Panel Access'|trans }}</td>
+                    <td>
+                        <a href="{{ service.panel_url }}" target="_blank" class="btn btn-primary btn-sm">
+                            <svg class="icon" width="16" height="16">
+                                <use xlink:href="#external-link" />
+                            </svg>
+                            {{ 'Access Panel'|trans }}
+                        </a>
+                    </td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td>{{ 'Actions'|trans }}</td>
+                    <td>
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                            <svg class="icon" width="16" height="16">
+                                <use xlink:href="#key" />
+                            </svg>
+                            {{ 'Change Password'|trans }}
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changePasswordModalLabel">{{ 'Change Pterodactyl Password'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'Close'|trans }}"></button>
+            </div>
+            <form id="changePasswordForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">{{ 'New Password'|trans }}</label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" required minlength="8">
+                        <div class="form-text">{{ 'Password must be at least 8 characters and contain uppercase letters, lowercase letters, and numbers'|trans }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">{{ 'Confirm Password'|trans }}</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required minlength="8">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'Cancel'|trans }}</button>
+                    <button type="submit" class="btn btn-primary" id="changePasswordBtn">{{ 'Change Password'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$('#changePasswordForm').submit(function(e) {
+    e.preventDefault();
+    
+    var newPassword = $('#new_password').val();
+    var confirmPassword = $('#confirm_password').val();
+    
+    if (newPassword !== confirmPassword) {
+        bb.msg('{{ 'Passwords do not match'|trans }}', 'error');
+        return false;
+    }
+    
+    var btn = $('#changePasswordBtn');
+    btn.prop('disabled', true);
+    btn.html('<span class="spinner-border spinner-border-sm me-2"></span>{{ 'Processing...'|trans }}');
+    
+    $.post('{{ 'api/client/servicepterodactyl/change_password'|link }}', {
+        order_id: {{ order.id }},
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+        CSRFToken: '{{ CSRFToken }}'
+    }, function(data) {
+        btn.prop('disabled', false);
+        btn.html('{{ 'Change Password'|trans }}');
+        
+        if (data && data.result) {
+            bb.msg('{{ 'Password changed successfully'|trans }}', 'success');
+            // Close modal
+            var modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+            modal.hide();
+            // Clear form
+            $('#changePasswordForm')[0].reset();
+        } else if (data && data.error) {
+            var errorMsg = data.error;
+            if (typeof errorMsg === 'object') {
+                errorMsg = errorMsg.message || JSON.stringify(errorMsg);
+            }
+            bb.msg(errorMsg, 'error');
+        } else {
+            bb.msg('{{ 'Failed to change password'|trans }}', 'error');
+        }
+    }).fail(function(xhr) {
+        btn.prop('disabled', false);
+        btn.html('{{ 'Change Password'|trans }}');
+        var error = '{{ 'Failed to change password'|trans }}';
+        
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+            if (typeof xhr.responseJSON.error === 'object') {
+                error = xhr.responseJSON.error.message || JSON.stringify(xhr.responseJSON.error);
+            } else {
+                error = xhr.responseJSON.error;
+            }
+        } else if (xhr.responseText) {
+            try {
+                var parsed = JSON.parse(xhr.responseText);
+                if (parsed.error) {
+                    error = typeof parsed.error === 'object' ? (parsed.error.message || JSON.stringify(parsed.error)) : parsed.error;
+                }
+            } catch(e) {
+                error = xhr.responseText;
+            }
+        }
+        bb.msg(error, 'error');
+    });
+});
+</script>
+{% endif %}
