@@ -30,10 +30,7 @@ A free and open-source module that connects **Pterodactyl** with **FOSSBilling**
 
 ## 🛠 Roadmap
 
-* [ ] Automatic server deletion on order cancellation
-* [ ] Support for custom egg variables
-* [ ] Client-side server actions (restart, stop, reinstall)
-* [ ] WHMCS-style configurable options for resources
+* [ ] - Improve UI/UX for client panel
 
 ## 🤝 Contributing
 
