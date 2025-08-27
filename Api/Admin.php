@@ -84,6 +84,50 @@ class Admin extends \Api_Abstract
     }
 
     /**
+     * Unsuspend a Pterodactyl server.
+     *
+     * @param array $data - An associative array
+     *                    - int 'order_id' (required) The order ID to unsuspend.
+     */
+    public function unsuspend($data): bool
+    {
+        if (empty($data['order_id'])) {
+            throw new \FOSSBilling\Exception('Order ID is required for unsuspension.');
+        }
+
+        $order = $this->di['db']->getExistingModelById('ClientOrder', $data['order_id'], 'Order not found');
+        $orderService = $this->di['mod_service']('order');
+        $model = $orderService->getOrderService($order);
+        
+        return $this->getService()->unsuspend($order, $model);
+    }
+
+    /**
+     * Change account password on Pterodactyl server.
+     * This method is called by FOSSBilling admin interface
+     *
+     * @param array $data - An associative array
+     *                    - int 'order_id' (required) The order ID
+     *                    - string 'password' (required) The new password
+     */
+    public function change_account_password($data): bool
+    {
+        if (empty($data['order_id'])) {
+            throw new \FOSSBilling\Exception('Order ID is required.');
+        }
+
+        if (empty($data['password'])) {
+            throw new \FOSSBilling\Exception('Password is required.');
+        }
+
+        // Get order
+        $order = $this->di['db']->getExistingModelById('ClientOrder', $data['order_id'], 'Order not found');
+        
+        // Admin context - no ownership check needed
+        return $this->getService()->changeAccountPassword($order, null, ['password' => $data['password']]);
+    }
+
+    /**
      * Save global Pterodactyl settings.
      *
      * @param array $data - An associative array with settings

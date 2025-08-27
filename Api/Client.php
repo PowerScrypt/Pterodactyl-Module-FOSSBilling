@@ -98,9 +98,17 @@ class Client extends \Api_Abstract
             throw new \FOSSBilling\Exception('Password must contain at least one number.');
         }
         
-        // Verify ownership
+        // Get order and verify ownership
+        $orderId = $data['order_id'];
+        $order = $this->di['db']->getExistingModelById('ClientOrder', $orderId, 'Order not found');
+        
         $client = $this->getIdentity();
-        $result = $this->getService()->changeUserPassword($data['order_id'], $data['new_password'], $client->id);
+        if ($order->client_id !== $client->id) {
+            throw new \FOSSBilling\Exception('Order not found');
+        }
+        
+        // Call service method with new signature
+        $result = $this->getService()->changeAccountPassword($order, null, ['new_password' => $data['new_password']]);
         
         return ['result' => $result];
     }

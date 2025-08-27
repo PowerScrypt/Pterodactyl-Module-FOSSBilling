@@ -191,146 +191,9 @@ class Service implements InjectionAwareInterface
         return $result;
     }
 
-    /**
-     * Checks if an API key is valid or not.
-     *
-     *                    - 'key' What API key to check
-     */
-    public function isValid(array $data): bool
-    {
-        if (empty($data['key'])) {
-            throw new \FOSSBilling\Exception('You must provide an API key to check it\'s validity.');
-        }
-
-        $model = $this->di['db']->findOne('service_pterodactyl', 'api_key = :api_key', [':api_key' => $data['key']]);
-        if (is_null($model)) {
-            throw new \FOSSBilling\Exception('API key does not exist');
-        }
-
-        return $this->isActive($model);
-    }
 
     /**
-     * Checks if an API key is valid or not and returns that + any configured custom parameters.
-     *
-     *                    - 'key' What API key to check
-     */
-    public function getInfo(array $data): array
-    {
-        if (empty($data['key'])) {
-            throw new \FOSSBilling\Exception('You must provide an API key to check it\'s validity.');
-        }
-
-        $model = $this->di['db']->findOne('service_pterodactyl', 'api_key = :api_key', [':api_key' => $data['key']]);
-        if (is_null($model)) {
-            throw new \FOSSBilling\Exception('API key does not exist');
-        }
-
-        // Load the stored JSON config from the DB
-        $rawConfig = json_decode($model->config, true);
-        $strippedConfig = [];
-        if (!is_array($rawConfig)) {
-            $rawConfig = [];
-        }
-
-        // Then loop through it and only select the custom parameters, removing the 'custom_' prefix & converting numerical strings to a float.
-        foreach ($rawConfig as $key => $value) {
-            if (str_starts_with($key, 'custom_')) {
-                $name = substr($key, 7);
-                if (is_numeric($value)) {
-                    $strippedConfig[$name] = floatval($value);
-                } else {
-                    $strippedConfig[$name] = $value;
-                }
-            }
-        }
-
-        return [
-            'valid' => $this->isActive($model),
-            'config' => $strippedConfig,
-        ];
-    }
-
-    /**
-     * Used to reset an API key using the API key generator.
-     *
-     * @param array $data An array containing what API key to reset. At least one of the possible identification methods must be provided.
-     *                    - int 'order_id' (optional) The ID of the API key to rest.
-     *                    - string 'key' (optional) The API key to reset.
-     */
-    public function resetApiKey(array $data): bool
-    {
-        if (empty($data['key']) && empty($data['order_id'])) {
-            throw new \FOSSBilling\Exception('You must provide either the API key or API key order ID in order to reset it.');
-        } elseif (!empty($data['order_id'])) {
-            $order = $this->di['db']->getExistingModelById('ClientOrder', $data['order_id'], 'Order not found');
-            $orderService = $this->di['mod_service']('order');
-            $model = $orderService->getOrderService($order);
-        } else {
-            $model = $this->di['db']->findOne('service_pterodactyl', 'api_key = :api_key', [':api_key' => $data['key']]);
-        }
-
-        if (is_null($model)) {
-            throw new \FOSSBilling\Exception('API key does not exist');
-        }
-
-        try {
-            $this->di['is_client_logged'];
-            $client = $this->di['loggedin_client'];
-        } catch (\Exception) {
-            $client = null;
-        }
-
-        if (!is_null($client) && $client->id !== $model->client_id) {
-            throw new \FOSSBilling\Exception('API key does not exist');
-        }
-
-        $config = json_decode($model->config, true);
-
-        $model->api_key = $this->generateKey($config);
-        $model->updated_at = date('Y-m-d H:i:s');
-        $this->di['db']->store($model);
-
-        return true;
-    }
-
-    /**
-     * Used to update an API key, but prevents changing the API key so we can ensure they use the reset function.
-     *
-     * @param array $data An array containing what API key to update and what info to update.
-     *                    - int 'order_id' The order ID of the API key to update.
-     *                    - array 'config' (optional) The new config to attach to the API key.
-     */
-    public function updateApiKey(array $data): bool
-    {
-        if (empty($data['order_id'])) {
-            throw new \FOSSBilling\Exception('You must provide the API key order ID in order to update it.');
-        }
-
-        $order = $this->di['db']->getExistingModelById('ClientOrder', $data['order_id'], 'Order not found');
-        $orderService = $this->di['mod_service']('order');
-        $model = $orderService->getOrderService($order);
-
-        if (is_null($model)) {
-            throw new \FOSSBilling\Exception('API key does not exist');
-        }
-
-        if (isset($data['api_key']) && $model->api_key !== $data['api_key']) {
-            throw new \FOSSBilling\Exception('To change the API key, please use the reset function rather than updating it.');
-        }
-
-        $config = !empty($data['config']) ? json_encode($data['config']) : $model->config;
-
-        // ID and client ID should remain constant so we don't try to update those here.
-        $model->config = $config;
-        $model->updated_at = date('Y-m-d H:i:s');
-        $this->di['db']->store($model);
-
-        return true;
-    }
-
-    /**
-     * Creates the database structure to store the API keys in.
+     * Creates the database structure to store the Pterodactyl server information.
      */
     public function install(): bool
     {
@@ -352,7 +215,7 @@ class Service implements InjectionAwareInterface
     }
 
     /**
-     * Removes the API keys from the database.
+     * Removes the Pterodactyl service table from the database.
      */
     public function uninstall(): bool
     {
@@ -678,19 +541,49 @@ class Service implements InjectionAwareInterface
     }
 
     /**
-     * Change user password on Pterodactyl panel
+     * Change account password on Pterodactyl panel
+     * This follows FOSSBilling naming convention for compatibility with admin interface
+     * Can be called from both admin and client contexts
+     * 
+     * @param OODBBean|int $orderOrId - Order bean or order ID
+     * @param OODBBean|null $model - Service model (optional)
+     * @param array|string $data - Password data or string
+     * @return bool
      */
-    public function changeUserPassword(int $orderId, string $newPassword, int $clientId): bool
+    public function changeAccountPassword($orderOrId, $model = null, $data = []): bool
     {
-        $order = $this->di['db']->getExistingModelById('ClientOrder', $orderId, 'Order not found');
-        
-        // Verify ownership
-        if ($order->client_id !== $clientId) {
-            throw new \FOSSBilling\Exception('You do not have permission to change this server password.');
+        // Handle different parameter formats from FOSSBilling
+        if (is_object($orderOrId)) {
+            // Called with order bean
+            $order = $orderOrId;
+            $orderId = $order->id;
+        } else {
+            // Called with order ID
+            $orderId = $orderOrId;
+            $order = $this->di['db']->getExistingModelById('ClientOrder', $orderId, 'Order not found');
         }
         
-        $orderService = $this->di['mod_service']('order');
-        $model = $orderService->getOrderService($order);
+        // Extract password from data
+        $newPassword = null;
+        if (is_string($data)) {
+            $newPassword = $data;
+        } elseif (is_array($data)) {
+            $newPassword = $data['password'] ?? $data['new_password'] ?? null;
+        } elseif (is_string($model)) {
+            // Sometimes password is passed as second parameter
+            $newPassword = $model;
+            $model = null;
+        }
+        
+        if (empty($newPassword)) {
+            throw new \FOSSBilling\Exception('Password is required');
+        }
+        
+        // Get service model if not provided
+        if (!$model) {
+            $orderService = $this->di['mod_service']('order');
+            $model = $orderService->getOrderService($order);
+        }
         
         if (!$model->server_id) {
             throw new \FOSSBilling\Exception('Server not provisioned');
@@ -702,7 +595,7 @@ class Service implements InjectionAwareInterface
             $this->panelConfig = $this->getPanelConfig($config);
             
             // Get client information
-            $client = $this->di['db']->load('client', $model->client_id);
+            $client = $this->di['db']->load('client', $order->client_id);
             if (!$client) {
                 throw new \FOSSBilling\Exception('Client not found');
             }
@@ -724,7 +617,7 @@ class Service implements InjectionAwareInterface
             
             // Log the password change
             if (isset($this->di['logger'])) {
-                $this->di['logger']->info('Pterodactyl password changed for order #%s by client #%s', $orderId, $clientId);
+                $this->di['logger']->info('Pterodactyl password changed for order #%s', $orderId);
             }
             
             return true;
@@ -875,13 +768,4 @@ class Service implements InjectionAwareInterface
         }
     }
 
-    private function isActive(OODBBean $model): bool
-    {
-        $order = $this->di['db']->findOne('ClientOrder', 'service_id = :id AND service_type = "apikey"', [':id' => $model->id]);
-        if (is_null($order)) {
-            throw new \FOSSBilling\Exception('API key does not exist');
-        }
-
-        return $order->status === 'active';
-    }
 }
